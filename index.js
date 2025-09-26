@@ -1,41 +1,50 @@
-const express =require('express')
-const cors =require('cors')
-const dotenv =require('dotenv')
+import express from "express";
+import cors from "cors";
+import Stripe from "stripe";
+import dotenv from "dotenv";
+
+// Load environment variables
 dotenv.config();
-const stripe=require('stripe')(process.env.STRIPE_KEY)
 
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
+const app = express();
 
-const app=express();
-app.use(cors({origin:true}))
+// Middleware
+app.use(cors({ origin: true }));
+app.use(express.json());
 
-app.use(express.json())
+// Test route
+app.get("/", (req, res) => {
+  res.send("💻 Amazon API Backend is running!");
+});
 
-app.get('/',(req,res)=>{
-    res.status(200).json({
-        message:'success!',
-    })
-})
-
+// Payment creation route
 app.post("/payment/create", async (req, res) => {
-  const total = req.query.total;
-  if (total > 0) {
+  try {
+    const total = Math.round(Number(req.query.total));
+    console.log("💰 Payment request received for:", total);
+
+    if (!total || isNaN(total)) {
+      return res.status(400).send({ error: "Invalid total amount" });
+    }
+
     const paymentIntent = await stripe.paymentIntents.create({
       amount: total,
       currency: "usd",
     });
-    
-    res.status(201).json({
+
+    res.status(201).send({
       clientSecret: paymentIntent.client_secret,
     });
-  }else{
-     res.status(403).json({
-        message:'total must be greater than 0'
-     });
+  } catch (err) {
+    console.error("❌ Stripe error:", err.message);
+    res.status(500).send({ error: err.message });
   }
 });
 
-app.listen(5000,(err)=>{
-    if(err) throw err
-    console.log('Amazon server is Running on PORT: 5000,http://localhost:5000')
-})
+// Use PORT from .env or default to 5000
+const PORT = process.env.PORT || 5000;
+app.listen(PORT, () => {
+  console.log(`🚀 Server running at http://localhost:${PORT}`);
+});
